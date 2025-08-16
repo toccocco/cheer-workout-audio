@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>💪 Cheer Workout Timer</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#ffffff">
+<style>
+:root { font-size: 16px; }
+@media (min-width: 600px){ :root { font-size: 18px; } }
+@media (min-width: 900px){ :root { font-size: 20px; } }
+
+html { -webkit-text-size-adjust: 100%; }
+body{
+  font-family:"Hiragino Sans","Yu Gothic",system-ui,-apple-system,sans-serif;
+  margin:0; padding:1rem; min-height:100vh;
+  background:linear-gradient(135deg,#ffeef8 0%,#f0f8ff 50%,#fff0f8 100%);
+  color:#5a4b7a; box-sizing:border-box;
+}
+.container{
+  max-width: 28rem; width: 100%; margin: 0 auto; padding: 1.25rem;
+  background: rgba(255,255,255,.9); border-radius: 1.25rem;
+  box-shadow: 0 0.5rem 2rem rgba(0,0,0,.1); backdrop-filter: blur(10px);
+}
+
+h1{
+  font-size: 1.6rem; margin-bottom: .75rem; text-align:center; font-weight:bold; line-height:1.3;
+  white-space: normal; word-break: normal; overflow-wrap: anywhere; line-break: strict; text-wrap: balance;
+  background: linear-gradient(45deg,#ff6b9d,#c44569);
+  background: -webkit-linear-gradient(45deg,#ff6b9d,#c44569);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+@supports (-webkit-touch-callout: none){
+  h1{ background:none !important; -webkit-background-clip:initial !important; -webkit-text-fill-color:#ff6b9d !important; color:#ff6b9d !important; }
+}
+
+.title-text{ display:block; width:100%; }
+.title-mobile{ display:block; } .title-desktop{ display:none; }
+@media (min-width: 420px){ .title-mobile{ display:none; } .title-desktop{ display:block; } }
+
+.row{ margin: 1rem 0; display:flex; gap:.75rem; align-items:center; flex-wrap:wrap; justify-content:center; }
+label{ font-weight:bold; color:#8b7aa8; font-size:1rem; white-space:nowrap; }
+input[type="number"]{
+  width: 4.2rem; padding:.6rem; font-size:1rem; border: .125rem solid #ffc1e3; border-radius: 1rem;
+  background: rgba(255,255,255,.85); text-align:center; color:#5a4b7a; font-weight:bold;
+}
+input:focus{ outline:none; border-color:#ff6b9d; box-shadow:0 0 0 .1875rem rgba(255,107,157,.2); }
+
+button{
+  padding:.8rem 1.1rem; border:none; border-radius:1.1rem; background:linear-gradient(45deg,#ff6b9d,#ff8fab);
+  color:#fff; font-size:1rem; font-weight:bold; cursor:pointer; transition:transform .2s, box-shadow .2s;
+  box-shadow:0 .25rem 1rem rgba(255,107,157,.3); white-space:nowrap;
+}
+button:hover{ transform:translateY(-.15rem); box-shadow:0 .4rem 1.25rem rgba(255,107,157,.4); }
+#stopBtn{ background:linear-gradient(45deg,#a8a8a8,#c0c0c0); }
+
+.range{ -webkit-appearance:none; width:10rem; height:.375rem; border-radius:999px; background:#ffe0ef; outline:none; }
+.range::-webkit-slider-thumb{ -webkit-appearance:none; width:1.25rem; height:1.25rem; border-radius:50%; background:#ff6b9d; cursor:pointer; border:.125rem solid #fff; box-shadow:0 0 0 .125rem rgba(255,107,157,.2); }
+small{ color:#8b7aa8; font-size:.9rem; }
+
+#status{
+  margin-top:1rem; font-size:1.2rem; text-align:center; font-weight:bold; color:#ff6b9d; text-shadow:0 .125rem .25rem rgba(255,107,157,.3);
+  line-height:1.5; padding:.8rem; background:rgba(255,193,227,.1); border-radius:1rem; border:1px solid rgba(255,193,227,.3);
+}
+#msg{
+  margin-top: .8rem; font-size:1rem; min-height:2em; text-align:center; background:linear-gradient(135deg,#fff,#ffeef8);
+  padding:.75rem; border-radius:1rem; border:.125rem solid #ffc1e3; color:#8b7aa8; font-weight:bold; box-shadow:0 .25rem 1rem rgba(255,193,227,.3);
+}
+
+.working{ animation:pulse 2s infinite; }
+@keyframes pulse{ 0%{transform:scale(1);} 50%{transform:scale(1.02);} 100%{transform:scale(1);} }
+.completed{ animation:celebration .8s ease-out; }
+@keyframes celebration{ 0%{transform:scale(1) rotate(0);} 25%{transform:scale(1.04) rotate(-3deg);} 75%{transform:scale(1.04) rotate(3deg);} 100%{transform:scale(1) rotate(0);} }
+
+.hint{ color:#9a9a9a; font-size:.9rem; text-align:center; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>
+    <span class="title-text title-mobile">💪 Cheer Workout Timer</span>
+    <span class="title-text title-desktop">💪 Cheer Workout Timer</span>
+  </h1>
+
+  <div class="row">
+    <label>セット <input id="sets" type="number" value="8" min="1" /></label>
+    <label>作業(秒) <input id="work" type="number" value="45" min="5" /></label>
+    <label>休憩(秒) <input id="rest" type="number" value="15" min="0" /></label>
+  </div>
+
+  <div class="row">
+    <label>音量 <input id="vol" class="range" type="range" min="0" max="1" step="0.01"></label>
+    <small id="volVal"></small>
+  </div>
+
+  <div class="row">
+    <button id="startBtn">🌟 Start</button>
+    <button id="stopBtn">⏸️ Stop</button>
+    <button id="installBtn" hidden>📱 Add to Home</button>
+  </div>
+
+  <p class="hint">🔊 最初の「Start」で再生可</p>
+
+  <div id="status">💤 Stopped</div>
+  <div id="msg">…</div>
+</div>
+
+<script>
+/* ===== SW ===== */
+if ('serviceWorker' in navigator) {
+  addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=3'));
+}
+
+/* ===== Install ===== */
+let deferredPrompt=null;
+const installBtn=document.getElementById('installBtn');
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;installBtn.hidden=false;});
+installBtn.addEventListener('click',async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;installBtn.hidden=true;});
+
+/* ===== Wake Lock ===== */
+let wakeLock=null;
+async function requestWakeLock(){ try{ if('wakeLock' in navigator){ wakeLock=await navigator.wakeLock.request('screen'); } }catch(e){} }
+function releaseWakeLock(){ try{ wakeLock?.release(); wakeLock=null; }catch(e){} }
+addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&wakeLock) requestWakeLock(); });
+
+/* ===== 音源＆テキストを1対1で同期 ===== */
+const LINES = {
+  start: [
+    { text: "がんばれー！", file: "audio/ganbare.mp3" },
+    { text: "頑張って！",   file: "audio/ganbatte.mp3" },
+    { text: "その調子その調子！", file: "audio/sono_choshi.mp3" },
+    { text: "フレーフレー！", file: "audio/hurray.mp3" }
+  ],
+  rest: [
+    { text: "あとちょっと〜！", file: "audio/ato_chotto.mp3" }
+  ],
+  complete: [
+    { text: "やったね！",     file: "audio/yatta_ne.mp3" },
+    { text: "やったーー！",   file: "audio/yatta_long.mp3" },
+    { text: "お疲れ様でした！", file: "audio/otsukaresama.mp3" }
+  ]
+};
+
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)] }
+
+const volEl = document.getElementById('vol');
+const volVal= document.getElementById('volVal');
+const savedVol = parseFloat(localStorage.getItem('cheer-vol')||'0.8');
+volEl.value = savedVol.toFixed(2); volVal.textContent = savedVol.toFixed(2);
+volEl.addEventListener('input',()=>{const v=parseFloat(volEl.value); volVal.textContent=v.toFixed(2); localStorage.setItem('cheer-vol', v.toString()); if(masterGain) setMasterGain(v);});
+
+/* ===== Web Audio ===== */
+let ctx=null, masterGain=null, unlocked=false;
+const buffers = new Map(); // url -> AudioBuffer
+
+async function ensureAudioContext(){
+  if (!ctx) {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = ctx.createGain();
+    masterGain.gain.value = parseFloat(localStorage.getItem('cheer-vol')||'0.8');
+    masterGain.connect(ctx.destination);
+  }
+  if (ctx.state === 'suspended') await ctx.resume();
+}
+function setMasterGain(v){ if(masterGain){ masterGain.gain.setTargetAtTime(v, ctx.currentTime, 0.01); } }
+
+async function loadBuffer(url){
+  if (buffers.has(url)) return buffers.get(url);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('audio fetch failed: '+url);
+  const arr = await res.arrayBuffer();
+  const buf = await ctx.decodeAudioData(arr);
+  buffers.set(url, buf);
+  return buf;
+}
+
+/**
+ * 音と文字を同期再生：
+ * - ランダムにエントリを選ぶ
+ * - 再生「開始と同時」に msg をそのテキストに更新
+ * - 再生終了で msg を「…」に自動戻し
+ * 返り値： {text, durationSec}
+ */
+async function playSynced(kind, {volume=1.0}={}){
+  try{
+    await ensureAudioContext();
+    const entry = pick(LINES[kind]);
+    const buf = await loadBuffer(entry.file);
+
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const gain = ctx.createGain(); gain.gain.value = volume;
+    src.connect(gain).connect(masterGain);
+
+    const msgEl = document.getElementById('msg');
+
+    // 再生開始と同時にテキストを表示
+    src.onended = () => { if (msgEl.dataset.lock !== '1') msgEl.textContent = "…"; };
+
+    // "ロック"で外部から上書きされないように（終了時に解除）
+    msgEl.dataset.lock = '1';
+    src.start();
+    msgEl.textContent = entry.text;
+
+    const durationSec = buf.duration || 1.0;
+
+    // 再生が確実に終わる少し後にロック解除
+    setTimeout(()=>{ msgEl.dataset.lock = '0'; }, Math.ceil(durationSec*1000)+100);
+
+    return { text: entry.text, durationSec };
+  }catch(e){
+    // フォールバック：HTMLAudio（失敗時も文字は同期させる）
+    const entry = pick(LINES[kind]);
+    const a = new Audio(entry.file);
+    a.volume = parseFloat(localStorage.getItem('cheer-vol')||'0.8') * (volume||1.0);
+    const msgEl = document.getElementById('msg');
+    msgEl.dataset.lock = '1';
+    msgEl.textContent = entry.text;
+    a.onended = ()=>{ if (msgEl.dataset.lock !== '1') msgEl.textContent = "…"; msgEl.dataset.lock='0'; };
+    a.play().catch(()=>{ msgEl.dataset.lock='0'; });
+    // HTMLAudio では厳密な長さが取れないので 1.2 秒程度を返す
+    return { text: entry.text, durationSec: 1.2 };
+  }
+}
+
+/* iOS/Safari オーディオ解放 */
+async function unlockAudio(){
+  if (unlocked) return;
+  try{
+    await ensureAudioContext();
+    const silent = ctx.createBuffer(1, 1, ctx.sampleRate);
+    const src = ctx.createBufferSource(); src.buffer = silent; src.connect(ctx.destination); src.start(0);
+    unlocked = true;
+  }catch(_){}
+}
+
+/* ===== Flow ===== */
+const statusEl = document.getElementById('status');
+function setStatus(t){ statusEl.textContent=t; }
+function wait(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+let running=false, currentSet=0, timerId=null;
+function sleepSec(sec){ return new Promise(res => { timerId = setTimeout(res, sec*1000); }); }
+
+async function run(){
+  await unlockAudio();
+  await ensureAudioContext();
+  await requestWakeLock();
+
+  const sets = parseInt(document.getElementById('sets').value,10);
+  const work = parseInt(document.getElementById('work').value,10);
+  const rest = parseInt(document.getElementById('rest').value,10);
+
+  running=true; currentSet=0;
+  setStatus("🌸 準備中… フォームを意識して");
+  await wait(600);
+
+  while (running && currentSet < sets) {
+    currentSet++;
+    statusEl.className = "working";
+    setStatus(`💪 Set ${currentSet}/${sets} - WORK (${work}s)`);
+
+    // 作業開始：音と文字を同期で出す
+    await playSynced('start', {volume: 1.0});
+    await sleepSec(work);
+    if (!running) break;
+
+    if (currentSet < sets && rest > 0) {
+      statusEl.className = "";
+      setStatus(`😌 Rest (${rest}s)`);
+      await playSynced('rest', {volume: 0.9});
+      await sleepSec(rest);
+    }
+  }
+
+  if (running) {
+    statusEl.className = "completed";
+    setStatus("🎉 完了！Great Job! 🎉");
+    await playSynced('complete', {volume: 1.0});
+  }
+  running=false; releaseWakeLock();
+}
+
+document.getElementById('startBtn').addEventListener('click', ()=>{ if (!running) run(); });
+document.getElementById('stopBtn').addEventListener('click', ()=>{
+  running=false; clearTimeout(timerId);
+  setStatus("💤 停止中"); statusEl.className=""; 
+  const msgEl = document.getElementById('msg'); msgEl.dataset.lock='0'; msgEl.textContent="…";
+  releaseWakeLock();
+});
+</script>
+</body>
+</html>
