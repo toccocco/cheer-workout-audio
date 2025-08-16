@@ -1,11 +1,15 @@
-// sw.js (audio-first cache)
-const CACHE = 'cheer-audio-v2';
+// sw.js (mobile-friendly audio cache)
+const CACHE = 'cheer-audio-v3';
 const PRECACHE = [
   './',
   './index.html',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png',
+  './icon-512.png'
+];
+
+// 音声ファイルは個別にキャッシュ（失敗を許容）
+const AUDIO_FILES = [
   './audio/ganbare.mp3',
   './audio/ganbatte.mp3',
   './audio/sono_choshi.mp3',
@@ -17,7 +21,28 @@ const PRECACHE = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE).catch(()=>{})));
+  e.waitUntil(
+    caches.open(CACHE).then(async (cache) => {
+      // 基本ファイルを最初にキャッシュ
+      try {
+        await cache.addAll(PRECACHE);
+      } catch (err) {
+        console.log('Basic cache failed:', err);
+      }
+      
+      // 音声ファイルを個別にキャッシュ（失敗しても続行）
+      for (const audioFile of AUDIO_FILES) {
+        try {
+          const response = await fetch(audioFile);
+          if (response.ok) {
+            await cache.put(audioFile, response);
+          }
+        } catch (err) {
+          console.log('Audio cache failed for:', audioFile);
+        }
+      }
+    })
+  );
   self.skipWaiting();
 });
 
