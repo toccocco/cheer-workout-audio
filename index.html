@@ -125,7 +125,7 @@ small{ color:#8b7aa8; font-size:.9rem; }
 /* ===== SW ===== */
 if ('serviceWorker' in navigator) {
   addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=3').catch(err => {
+    navigator.serviceWorker.register('./sw.js?v=4').catch(err => {
       console.log('SW registration failed:', err);
     });
   });
@@ -228,9 +228,14 @@ async function playSynced(kind, {volume=1.0}={}){
   const entry = pick(LINES[kind]);
   const msgEl = document.getElementById('msg');
   
+  // 絶対URLを生成
+  const baseUrl = window.location.origin + window.location.pathname.replace('/index.html', '').replace(/\/$/, '');
+  const audioUrl = `${baseUrl}/${entry.file}`;
+  
   // iOS対策：HTMLAudioを優先使用（より確実）
   try{
-    const a = new Audio(entry.file);
+    const a = new Audio(audioUrl);
+    a.crossOrigin = 'anonymous'; // CORS対応
     a.volume = parseFloat(localStorage.getItem('cheer-vol')||'0.8') * (volume||1.0);
     
     msgEl.dataset.lock = '1';
@@ -253,7 +258,7 @@ async function playSynced(kind, {volume=1.0}={}){
     // フォールバック：Web Audio API
     try{
       await ensureAudioContext();
-      const buf = await loadBuffer(entry.file);
+      const buf = await loadBuffer(audioUrl);
 
       const src = ctx.createBufferSource();
       src.buffer = buf;
@@ -356,19 +361,26 @@ document.getElementById('startBtn').addEventListener('click', async (e)=>{
   e.preventDefault(); // デフォルト動作を防止
   if (!running) {
     try {
+      // iOS対策：絶対URL で音声ファイルを指定
+      const baseUrl = window.location.origin + window.location.pathname.replace('/index.html', '').replace(/\/$/, '');
+      const audioUrl = `${baseUrl}/audio/ganbare.mp3`;
+      
+      console.log('Trying to play:', audioUrl);
+      
       // iOS対策：クリック直後に即座に音声を再生
-      const immediateAudio = new Audio('audio/ganbare.mp3');
+      const immediateAudio = new Audio(audioUrl);
+      immediateAudio.crossOrigin = 'anonymous'; // CORS対応
       immediateAudio.volume = parseFloat(localStorage.getItem('cheer-vol') || '0.8');
       
-      // 即座に再生を開始（これが重要！）
-      const playPromise = immediateAudio.play();
-      
-      // 同時にワークアウトを開始
-      setStatus("🎵 音声テスト中...");
+      setStatus("🌟 Starting...");
       document.getElementById('msg').textContent = "がんばれー！";
       
-      if (playPromise) {
-        await playPromise.catch(e => console.log('Immediate audio failed:', e));
+      // 即座に再生を開始（これが重要！）
+      try {
+        await immediateAudio.play();
+        console.log('Immediate audio played successfully');
+      } catch (audioErr) {
+        console.log('Immediate audio failed:', audioErr);
       }
       
       // 短い遅延後にワークアウト開始
@@ -377,7 +389,7 @@ document.getElementById('startBtn').addEventListener('click', async (e)=>{
           console.error('Workout start failed:', e);
           setStatus("❌ エラーが発生しました");
         });
-      }, 500);
+      }, 1000);
       
     } catch (e) {
       console.error('Start button failed:', e);

@@ -1,5 +1,5 @@
 // sw.js (mobile-friendly audio cache)
-const CACHE = 'cheer-audio-v3';
+const CACHE = 'cheer-audio-v4';
 const PRECACHE = [
   './',
   './index.html',
