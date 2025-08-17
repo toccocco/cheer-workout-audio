@@ -12,11 +12,17 @@ body{
   margin:0; padding:min(5vw, 1rem); min-height:100vh;
   background:linear-gradient(135deg,#ffeef8 0%,#f0f8ff 50%,#fff0f8 100%);
   color:#5a4b7a; box-sizing:border-box;
+  overflow-x: hidden; /* 横スクロール防止 */
 }
 .container{
-  max-width: min(90vw, 28rem); width: 100%; margin: 0 auto; padding: min(4vw, 1.25rem);
-  background: rgba(255,255,255,.9); border-radius: min(3vw, 1.25rem);
+  max-width: min(calc(100vw - 2rem), 28rem); 
+  width: 100%; 
+  margin: 0 auto; 
+  padding: min(4vw, 1.25rem);
+  background: rgba(255,255,255,.9); 
+  border-radius: min(3vw, 1.25rem);
   box-shadow: 0 0.5rem 2rem rgba(0,0,0,.1);
+  box-sizing: border-box;
 }
 
 h1{
@@ -73,33 +79,34 @@ button:hover, button:active{ transform:translateY(-.15rem); }
 <script>
 // 音声リスト
 const AUDIO_FILES = [
-  'audio/ganbare.mp3',
-  'audio/ganbatte.mp3', 
-  'audio/sono_choshi.mp3',
-  'audio/hurray.mp3'
+  { file: 'audio/ganbare.mp3', text: 'がんばれー！' },
+  { file: 'audio/ganbatte.mp3', text: '頑張って！' }, 
+  { file: 'audio/sono_choshi.mp3', text: 'その調子その調子！' },
+  { file: 'audio/hurray.mp3', text: 'フレーフレー！' }
 ];
 
-const REST_AUDIO = 'audio/ato_chotto.mp3';
+const REST_AUDIO = { file: 'audio/ato_chotto.mp3', text: 'あとちょっと〜！' };
 
 const COMPLETE_FILES = [
-  'audio/yatta_ne.mp3',
-  'audio/yatta_long.mp3',
-  'audio/otsukaresama.mp3'
+  { file: 'audio/yatta_ne.mp3', text: 'やったね！' },
+  { file: 'audio/yatta_long.mp3', text: 'やったーー！' },
+  { file: 'audio/otsukaresama.mp3', text: 'お疲れ様でした！' }
 ];
 
 // ランダム選択
 function pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
 
 // シンプルな音声再生
-function playAudio(file, text) {
+function playAudio(audioEntry) {
   try {
-    const audio = new Audio(file);
+    console.log('Playing:', audioEntry.file, audioEntry.text);
+    const audio = new Audio(audioEntry.file);
     audio.volume = 0.7;
-    audio.play().catch(e => console.log('Audio failed:', e));
-    document.getElementById('msg').textContent = text || '♪';
+    audio.play().catch(e => console.log('Audio failed:', audioEntry.file, e));
+    document.getElementById('msg').textContent = audioEntry.text;
   } catch (e) {
-    console.log('Audio error:', e);
-    document.getElementById('msg').textContent = text || '♪';
+    console.log('Audio error:', audioEntry.file, e);
+    document.getElementById('msg').textContent = audioEntry.text;
   }
 }
 
@@ -125,8 +132,8 @@ async function run() {
     // セット開始
     document.getElementById('status').textContent = `💪 Set ${i}/${sets} - WORK`;
     
-    const workFile = pick(AUDIO_FILES);
-    playAudio(workFile, 'がんばれー！');
+    const workEntry = pick(AUDIO_FILES);
+    playAudio(workEntry);
     
     await sleep(work * 1000);
     if (!running) break;
@@ -134,15 +141,15 @@ async function run() {
     // 休憩
     if (i < sets && rest > 0) {
       document.getElementById('status').textContent = `😌 Rest (${rest}s)`;
-      playAudio(REST_AUDIO, 'あとちょっと〜！');
+      playAudio(REST_AUDIO);
       await sleep(rest * 1000);
     }
   }
 
   if (running) {
     document.getElementById('status').textContent = '🎉 Complete!';
-    const completeFile = pick(COMPLETE_FILES);
-    playAudio(completeFile, 'お疲れ様！');
+    const completeEntry = pick(COMPLETE_FILES);
+    playAudio(completeEntry);
   }
   
   running = false;
@@ -154,11 +161,13 @@ document.getElementById('startBtn').addEventListener('click', (e) => {
   
   if (!running) {
     // iOS対策：ユーザー操作直後に音声再生
-    const testAudio = new Audio('audio/ganbare.mp3');
+    const testEntry = pick(AUDIO_FILES);
+    const testAudio = new Audio(testEntry.file);
     testAudio.volume = 0.7;
     testAudio.play().then(() => {
-      console.log('Audio unlocked');
-      run();
+      console.log('Audio unlocked with:', testEntry.text);
+      document.getElementById('msg').textContent = testEntry.text;
+      setTimeout(() => run(), 500);
     }).catch(() => {
       console.log('Audio blocked, starting anyway');
       run();
