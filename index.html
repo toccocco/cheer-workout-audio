@@ -7,21 +7,25 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#ffffff">
 <style>
-:root { font-size: 16px; }
-@media (min-width: 600px){ :root { font-size: 18px; } }
-@media (min-width: 900px){ :root { font-size: 20px; } }
+:root { 
+  font-size: clamp(14px, 4vw, 20px); 
+}
 
-html { -webkit-text-size-adjust: 100%; }
+html { 
+  -webkit-text-size-adjust: 100%; 
+  touch-action: manipulation; /* iOS タッチ最適化 */
+}
 body{
   font-family:"Hiragino Sans","Yu Gothic",system-ui,-apple-system,sans-serif;
-  margin:0; padding:1rem; min-height:100vh;
+  margin:0; padding:min(5vw, 1rem); min-height:100vh;
   background:linear-gradient(135deg,#ffeef8 0%,#f0f8ff 50%,#fff0f8 100%);
   color:#5a4b7a; box-sizing:border-box;
 }
 .container{
-  max-width: 28rem; width: 100%; margin: 0 auto; padding: 1.25rem;
-  background: rgba(255,255,255,.9); border-radius: 1.25rem;
+  max-width: min(90vw, 28rem); width: 100%; margin: 0 auto; padding: min(4vw, 1.25rem);
+  background: rgba(255,255,255,.9); border-radius: min(3vw, 1.25rem);
   box-shadow: 0 0.5rem 2rem rgba(0,0,0,.1); backdrop-filter: blur(10px);
+  position: relative; z-index: 1;
 }
 
 h1{
@@ -48,15 +52,20 @@ input[type="number"]{
 input:focus{ outline:none; border-color:#ff6b9d; box-shadow:0 0 0 .1875rem rgba(255,107,157,.2); }
 
 button{
-  padding:.8rem 1.1rem; border:none; border-radius:1.1rem; background:linear-gradient(45deg,#ff6b9d,#ff8fab);
+  padding:min(3vw, .8rem) min(4vw, 1.1rem); border:none; border-radius:min(3vw, 1.1rem); 
+  background:linear-gradient(45deg,#ff6b9d,#ff8fab);
   color:#fff; font-size:1rem; font-weight:bold; cursor:pointer; transition:transform .2s, box-shadow .2s;
   box-shadow:0 .25rem 1rem rgba(255,107,157,.3); white-space:nowrap;
-  /* iPhone Safari タッチ対応 */
+  /* iPhone Safari タッチ対応強化 */
   -webkit-tap-highlight-color: rgba(255,107,157,0.3);
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
   touch-action: manipulation;
+  pointer-events: auto;
+  position: relative;
+  z-index: 10;
+  min-height: 44px; /* iOS 推奨タッチターゲットサイズ */
 }
 button:hover, button:active{ transform:translateY(-.15rem); box-shadow:0 .4rem 1.25rem rgba(255,107,157,.4); }
 #stopBtn{ background:linear-gradient(45deg,#a8a8a8,#c0c0c0); }
@@ -216,44 +225,58 @@ async function loadBuffer(url){
  * 返り値： {text, durationSec}
  */
 async function playSynced(kind, {volume=1.0}={}){
+  const entry = pick(LINES[kind]);
+  const msgEl = document.getElementById('msg');
+  
+  // iOS対策：HTMLAudioを優先使用（より確実）
   try{
-    await ensureAudioContext();
-    const entry = pick(LINES[kind]);
-    const buf = await loadBuffer(entry.file);
-
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    const gain = ctx.createGain(); gain.gain.value = volume;
-    src.connect(gain).connect(masterGain);
-
-    const msgEl = document.getElementById('msg');
-
-    // 再生開始と同時にテキストを表示
-    src.onended = () => { if (msgEl.dataset.lock !== '1') msgEl.textContent = "…"; };
-
-    // "ロック"で外部から上書きされないように（終了時に解除）
-    msgEl.dataset.lock = '1';
-    src.start();
-    msgEl.textContent = entry.text;
-
-    const durationSec = buf.duration || 1.0;
-
-    // 再生が確実に終わる少し後にロック解除
-    setTimeout(()=>{ msgEl.dataset.lock = '0'; }, Math.ceil(durationSec*1000)+100);
-
-    return { text: entry.text, durationSec };
-  }catch(e){
-    // フォールバック：HTMLAudio（失敗時も文字は同期させる）
-    const entry = pick(LINES[kind]);
     const a = new Audio(entry.file);
     a.volume = parseFloat(localStorage.getItem('cheer-vol')||'0.8') * (volume||1.0);
-    const msgEl = document.getElementById('msg');
+    
     msgEl.dataset.lock = '1';
     msgEl.textContent = entry.text;
-    a.onended = ()=>{ if (msgEl.dataset.lock !== '1') msgEl.textContent = "…"; msgEl.dataset.lock='0'; };
-    a.play().catch(()=>{ msgEl.dataset.lock='0'; });
-    // HTMLAudio では厳密な長さが取れないので 1.2 秒程度を返す
+    
+    a.onended = ()=>{ 
+      if (msgEl.dataset.lock !== '1') msgEl.textContent = "…"; 
+      msgEl.dataset.lock='0'; 
+    };
+    
+    // iOS対策：プリロードして即座に再生
+    a.preload = 'auto';
+    await a.play();
+    
     return { text: entry.text, durationSec: 1.2 };
+    
+  }catch(e){
+    console.log('HTML Audio failed, trying Web Audio:', e);
+    
+    // フォールバック：Web Audio API
+    try{
+      await ensureAudioContext();
+      const buf = await loadBuffer(entry.file);
+
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const gain = ctx.createGain(); gain.gain.value = volume;
+      src.connect(gain).connect(masterGain);
+
+      src.onended = () => { if (msgEl.dataset.lock !== '1') msgEl.textContent = "…"; };
+      msgEl.dataset.lock = '1';
+      src.start();
+      msgEl.textContent = entry.text;
+
+      const durationSec = buf.duration || 1.0;
+      setTimeout(()=>{ msgEl.dataset.lock = '0'; }, Math.ceil(durationSec*1000)+100);
+
+      return { text: entry.text, durationSec };
+    }catch(e2){
+      // 最終フォールバック：テキストのみ
+      console.log('All audio failed, text only:', e2);
+      msgEl.dataset.lock = '1';
+      msgEl.textContent = entry.text;
+      setTimeout(()=>{ msgEl.dataset.lock = '0'; msgEl.textContent = "…"; }, 2000);
+      return { text: entry.text, durationSec: 1.2 };
+    }
   }
 }
 
@@ -328,14 +351,36 @@ async function run(){
   running=false; releaseWakeLock();
 }
 
-// スタートボタンの処理（iPhone Safari対応）
+// スタートボタンの処理（iOS対応：ユーザー操作直後に音声再生）
 document.getElementById('startBtn').addEventListener('click', async (e)=>{ 
   e.preventDefault(); // デフォルト動作を防止
   if (!running) {
     try {
-      await run(); 
+      // iOS対策：クリック直後に即座に音声を再生
+      const immediateAudio = new Audio('audio/ganbare.mp3');
+      immediateAudio.volume = parseFloat(localStorage.getItem('cheer-vol') || '0.8');
+      
+      // 即座に再生を開始（これが重要！）
+      const playPromise = immediateAudio.play();
+      
+      // 同時にワークアウトを開始
+      setStatus("🎵 音声テスト中...");
+      document.getElementById('msg').textContent = "がんばれー！";
+      
+      if (playPromise) {
+        await playPromise.catch(e => console.log('Immediate audio failed:', e));
+      }
+      
+      // 短い遅延後にワークアウト開始
+      setTimeout(() => {
+        run().catch(e => {
+          console.error('Workout start failed:', e);
+          setStatus("❌ エラーが発生しました");
+        });
+      }, 500);
+      
     } catch (e) {
-      console.error('Workout start failed:', e);
+      console.error('Start button failed:', e);
       setStatus("❌ エラーが発生しました");
     }
   }
