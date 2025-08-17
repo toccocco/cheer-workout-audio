@@ -96,36 +96,25 @@ const COMPLETE_FILES = [
 // ランダム選択
 function pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
 
-// 音声ファイルをプリロード（iOS対策）
-let audioCache = {};
+// iOS対策：単一のAudioオブジェクトを使い回し
+let globalAudio = null;
 let audioUnlocked = false;
 
-function preloadAudio() {
-  const allAudioFiles = [
-    ...AUDIO_FILES,
-    REST_AUDIO,
-    ...COMPLETE_FILES
-  ];
-  
-  allAudioFiles.forEach(entry => {
-    const audio = new Audio(entry.file);
-    audio.preload = 'auto';
-    audio.volume = 0.7;
-    audioCache[entry.file] = audio;
-  });
-}
-
-// iOS対策：音声解放とプリロード
+// 音声解放（iOS対策）
 function unlockAudio() {
   if (audioUnlocked) return Promise.resolve();
   
   return new Promise((resolve) => {
-    const testAudio = new Audio('audio/ganbare.mp3');
-    testAudio.volume = 0.7;
-    testAudio.play().then(() => {
-      console.log('Audio unlocked - preloading all files');
+    globalAudio = new Audio();
+    globalAudio.volume = 0.7;
+    globalAudio.src = 'audio/ganbare.mp3';
+    
+    globalAudio.play().then(() => {
+      console.log('Audio unlocked');
       audioUnlocked = true;
-      preloadAudio();
+      // 無音で停止
+      globalAudio.pause();
+      globalAudio.currentTime = 0;
       resolve();
     }).catch(() => {
       console.log('Audio blocked');
@@ -134,20 +123,23 @@ function unlockAudio() {
   });
 }
 
-// シンプルな音声再生（プリロードされた音声を使用）
+// シンプルな音声再生（単一Audioオブジェクト使用）
 function playAudio(audioEntry) {
   try {
     console.log('Playing:', audioEntry.file, audioEntry.text);
     
-    let audio = audioCache[audioEntry.file];
-    if (!audio) {
-      audio = new Audio(audioEntry.file);
-      audio.volume = 0.7;
+    if (!globalAudio) {
+      console.log('Audio not unlocked yet');
+      document.getElementById('msg').textContent = audioEntry.text;
+      return;
     }
     
-    // 再生位置をリセット
-    audio.currentTime = 0;
-    audio.play().catch(e => console.log('Audio failed:', audioEntry.file, e));
+    // 前の音声を停止してから新しい音声をセット
+    globalAudio.pause();
+    globalAudio.currentTime = 0;
+    globalAudio.src = audioEntry.file;
+    
+    globalAudio.play().catch(e => console.log('Audio failed:', audioEntry.file, e));
     document.getElementById('msg').textContent = audioEntry.text;
   } catch (e) {
     console.log('Audio error:', audioEntry.file, e);
@@ -205,11 +197,18 @@ document.getElementById('startBtn').addEventListener('click', async (e) => {
   e.preventDefault();
   
   if (!running) {
-    // iOS対策：音声解放とプリロード
+    // iOS対策：音声解放
     await unlockAudio();
     
-    // 短い遅延後にワークアウト開始
-    setTimeout(() => run(), 200);
+    // 音声解放成功後にワークアウト開始（競合を避けるため少し待つ）
+    setTimeout(() => {
+      if (audioUnlocked) {
+        console.log('Starting workout with audio enabled');
+      } else {
+        console.log('Starting workout without audio');
+      }
+      run();
+    }, 500);
   }
 });
 
