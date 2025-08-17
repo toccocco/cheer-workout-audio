@@ -149,47 +149,101 @@ function playAudio(audioEntry) {
 
 // タイマー機能
 let running = false;
-let timerId = null;
+let currentTimeout = null;
 
 function sleep(ms) { 
-  return new Promise(resolve => { 
-    timerId = setTimeout(resolve, ms); 
+  return new Promise((resolve, reject) => { 
+    currentTimeout = setTimeout(() => {
+      currentTimeout = null;
+      resolve();
+    }, ms);
   }); 
+}
+
+function stopWorkout() {
+  console.log('Stopping workout...');
+  running = false;
+  
+  // タイマーをクリア
+  if (currentTimeout) {
+    clearTimeout(currentTimeout);
+    currentTimeout = null;
+  }
+  
+  // 音声を停止
+  if (globalAudio) {
+    globalAudio.pause();
+    globalAudio.currentTime = 0;
+  }
+  
+  // UIをリセット
+  document.getElementById('status').textContent = '💤 Stopped';
+  document.getElementById('msg').textContent = '…';
+  
+  console.log('Workout stopped');
 }
 
 async function run() {
   if (running) return;
   
   running = true;
+  console.log('Starting workout...');
+  
   const sets = parseInt(document.getElementById('sets').value, 10);
   const work = parseInt(document.getElementById('work').value, 10);
   const rest = parseInt(document.getElementById('rest').value, 10);
 
-  for (let i = 1; i <= sets && running; i++) {
-    // セット開始
-    document.getElementById('status').textContent = `💪 Set ${i}/${sets} - WORK`;
-    
-    const workEntry = pick(AUDIO_FILES);
-    playAudio(workEntry);
-    
-    await sleep(work * 1000);
-    if (!running) break;
+  try {
+    for (let i = 1; i <= sets && running; i++) {
+      // ストップチェック
+      if (!running) {
+        console.log('Workout stopped during setup');
+        break;
+      }
+      
+      // セット開始
+      document.getElementById('status').textContent = `💪 Set ${i}/${sets} - WORK`;
+      
+      const workEntry = pick(AUDIO_FILES);
+      playAudio(workEntry);
+      
+      // 作業時間待機
+      await sleep(work * 1000);
+      
+      // ストップチェック
+      if (!running) {
+        console.log('Workout stopped during work');
+        break;
+      }
 
-    // 休憩
-    if (i < sets && rest > 0) {
-      document.getElementById('status').textContent = `😌 Rest (${rest}s)`;
-      playAudio(REST_AUDIO);
-      await sleep(rest * 1000);
+      // 休憩
+      if (i < sets && rest > 0 && running) {
+        document.getElementById('status').textContent = `😌 Rest (${rest}s)`;
+        playAudio(REST_AUDIO);
+        
+        // 休憩時間待機
+        await sleep(rest * 1000);
+        
+        // ストップチェック
+        if (!running) {
+          console.log('Workout stopped during rest');
+          break;
+        }
+      }
     }
-  }
 
-  if (running) {
-    document.getElementById('status').textContent = '🎉 Complete!';
-    const completeEntry = pick(COMPLETE_FILES);
-    playAudio(completeEntry);
+    // 完了処理（停止されていない場合のみ）
+    if (running) {
+      document.getElementById('status').textContent = '🎉 Complete!';
+      const completeEntry = pick(COMPLETE_FILES);
+      playAudio(completeEntry);
+    }
+  } catch (error) {
+    console.log('Workout error:', error);
+  } finally {
+    running = false;
+    console.log('Workout ended');
   }
-  
-  running = false;
 }
 
 // iOS対策：クリック時に即座に音声解放
@@ -212,12 +266,18 @@ document.getElementById('startBtn').addEventListener('click', async (e) => {
   }
 });
 
-document.getElementById('stopBtn').addEventListener('click', () => {
-  running = false;
-  clearTimeout(timerId);
-  document.getElementById('status').textContent = '💤 Stopped';
-  document.getElementById('msg').textContent = '…';
+// ストップボタン（複数イベントで確実に）
+document.getElementById('stopBtn').addEventListener('click', (e) => {
+  e.preventDefault();
+  console.log('Stop button clicked');
+  stopWorkout();
 });
+
+document.getElementById('stopBtn').addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  console.log('Stop button touched');
+  stopWorkout();
+}, {passive: false});
 </script>
 </body>
 </html>
