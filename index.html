@@ -51,8 +51,14 @@ button{
   padding:.8rem 1.1rem; border:none; border-radius:1.1rem; background:linear-gradient(45deg,#ff6b9d,#ff8fab);
   color:#fff; font-size:1rem; font-weight:bold; cursor:pointer; transition:transform .2s, box-shadow .2s;
   box-shadow:0 .25rem 1rem rgba(255,107,157,.3); white-space:nowrap;
+  /* iPhone Safari タッチ対応 */
+  -webkit-tap-highlight-color: rgba(255,107,157,0.3);
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
 }
-button:hover{ transform:translateY(-.15rem); box-shadow:0 .4rem 1.25rem rgba(255,107,157,.4); }
+button:hover, button:active{ transform:translateY(-.15rem); box-shadow:0 .4rem 1.25rem rgba(255,107,157,.4); }
 #stopBtn{ background:linear-gradient(45deg,#a8a8a8,#c0c0c0); }
 
 .range{ -webkit-appearance:none; width:10rem; height:.375rem; border-radius:999px; background:#ffe0ef; outline:none; }
@@ -322,8 +328,9 @@ async function run(){
   running=false; releaseWakeLock();
 }
 
-// スタートボタンの処理（モバイル対応強化）
-document.getElementById('startBtn').addEventListener('click', async ()=>{ 
+// スタートボタンの処理（iPhone Safari対応）
+document.getElementById('startBtn').addEventListener('click', async (e)=>{ 
+  e.preventDefault(); // デフォルト動作を防止
   if (!running) {
     try {
       await run(); 
@@ -333,11 +340,6 @@ document.getElementById('startBtn').addEventListener('click', async ()=>{
     }
   }
 });
-
-// タッチ対応も追加
-document.getElementById('startBtn').addEventListener('touchstart', (e) => {
-  e.preventDefault(); // ダブルタップ防止
-}, {passive: false});
 document.getElementById('stopBtn').addEventListener('click', ()=>{
   running=false; clearTimeout(timerId);
   setStatus("💤 停止中"); statusEl.className=""; 
