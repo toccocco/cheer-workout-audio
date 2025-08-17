@@ -96,12 +96,57 @@ const COMPLETE_FILES = [
 // ランダム選択
 function pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
 
-// シンプルな音声再生
+// 音声ファイルをプリロード（iOS対策）
+let audioCache = {};
+let audioUnlocked = false;
+
+function preloadAudio() {
+  const allAudioFiles = [
+    ...AUDIO_FILES,
+    REST_AUDIO,
+    ...COMPLETE_FILES
+  ];
+  
+  allAudioFiles.forEach(entry => {
+    const audio = new Audio(entry.file);
+    audio.preload = 'auto';
+    audio.volume = 0.7;
+    audioCache[entry.file] = audio;
+  });
+}
+
+// iOS対策：音声解放とプリロード
+function unlockAudio() {
+  if (audioUnlocked) return Promise.resolve();
+  
+  return new Promise((resolve) => {
+    const testAudio = new Audio('audio/ganbare.mp3');
+    testAudio.volume = 0.7;
+    testAudio.play().then(() => {
+      console.log('Audio unlocked - preloading all files');
+      audioUnlocked = true;
+      preloadAudio();
+      resolve();
+    }).catch(() => {
+      console.log('Audio blocked');
+      resolve();
+    });
+  });
+}
+
+// シンプルな音声再生（プリロードされた音声を使用）
 function playAudio(audioEntry) {
   try {
     console.log('Playing:', audioEntry.file, audioEntry.text);
-    const audio = new Audio(audioEntry.file);
-    audio.volume = 0.7;
+    
+    let audio = audioCache[audioEntry.file];
+    if (!audio) {
+      audio = new Audio(audioEntry.file);
+      audio.volume = 0.7;
+    }
+    
+    // 再生位置をリセット
+    audio.currentTime = 0;
     audio.play().catch(e => console.log('Audio failed:', audioEntry.file, e));
     document.getElementById('msg').textContent = audioEntry.text;
   } catch (e) {
@@ -155,23 +200,16 @@ async function run() {
   running = false;
 }
 
-// iOS対策：クリック時に即座に音声テスト
-document.getElementById('startBtn').addEventListener('click', (e) => {
+// iOS対策：クリック時に即座に音声解放
+document.getElementById('startBtn').addEventListener('click', async (e) => {
   e.preventDefault();
   
   if (!running) {
-    // iOS対策：ユーザー操作直後に音声再生
-    const testEntry = pick(AUDIO_FILES);
-    const testAudio = new Audio(testEntry.file);
-    testAudio.volume = 0.7;
-    testAudio.play().then(() => {
-      console.log('Audio unlocked with:', testEntry.text);
-      document.getElementById('msg').textContent = testEntry.text;
-      setTimeout(() => run(), 500);
-    }).catch(() => {
-      console.log('Audio blocked, starting anyway');
-      run();
-    });
+    // iOS対策：音声解放とプリロード
+    await unlockAudio();
+    
+    // 短い遅延後にワークアウト開始
+    setTimeout(() => run(), 200);
   }
 });
 
